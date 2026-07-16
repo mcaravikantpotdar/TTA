@@ -1,1 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Architect v7.80 Phase 12 (Daily Slips)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --sub-color: #2563eb; --tea-color: #059669; --grid-scale: 1; --label-width: 140px; --px-per-min: 4; }
+        body { font-family: 'Inter Tight', sans-serif; -webkit-font-smoothing: antialiased; background: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* LAYOUT & SIDEBARS */
+        .app-shell { display: flex; flex: 1; overflow: hidden; width: 100%; }
+        .sidebar { width: 224px; background: white; flex-shrink: 0; z-index: 100; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+        .sidebar-left { border-right: 2px solid #cbd5e1; }
+        .sidebar-right { border-left: 2px solid #cbd5e1; }
+        .sidebar.collapsed { width: 48px; cursor: pointer; }
+        .sidebar.collapsed:hover { background: #f8fafc; }
+        .sidebar.collapsed .hide-on-collapse { display: none !important; }
+        .show-on-collapse { display: none; }
+        .sidebar.collapsed .show-on-collapse { display: flex; align-items: center; justify-content: center; height: 100%; font-weight: 900; color: #94a3b8; font-size: 18px; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 4px; }
+        .sidebar.collapsed:hover .show-on-collapse { color: #0f172a; }
+        .toggle-btn { color: #94a3b8; font-size: 14px; font-weight: 900; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: 0.1s; background: transparent; border: none; }
+        .toggle-btn:hover { background: #e2e8f0; color: #0f172a; }
 
+        /* GRID & TIMELINE */
+        .workspace { flex: 1; overflow: auto; background: #f1f5f9; padding: 24px; position: relative; display: block; width: 100%; }
+        .main-grid { transform-origin: top left; transform: scale(var(--grid-scale)); border: 2px solid #000; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: fit-content; min-width: max-content; background: white; }
+        .architect-row { display: flex; width: max-content; border-bottom: 2px solid #000; background: white; }
+        .period-header { background: #000; color: white; height: 60px; position: sticky; top: 0; z-index: 200; }
+        
+        .label-box { width: var(--label-width); flex-shrink: 0; background: #f1f5f9; border-right: 4px solid #000; display: flex; align-items: center; justify-content: center; font-weight: 900; text-transform: uppercase; font-size: 14px; position: sticky; left: 0; z-index: 150; cursor: pointer; }
+        .hover-actions { opacity: 0; position: absolute; right: 4px; display: flex; gap: 2px; transition: 0.15s; background: rgba(255,255,255,0.9); padding: 2px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); pointer-events: none; }
+        .label-box:hover .hover-actions, .p-block:hover .hover-actions { opacity: 1; pointer-events: auto; }
+
+        .p-block { display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 2px solid #334155; text-align: center; height: 100%; flex-shrink: 0; position: relative; }
+        .p-block span { font-size: 8px; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+        .time-slot { display: flex; border-right: 2px solid #000; position: relative; height: 125px; flex-shrink: 0; padding-right: 18px; }
+        .recess-block { background: #be123c; color: white; writing-mode: vertical-rl; text-orientation: mixed; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 900; border-right: 2px solid #000; flex-shrink: 0; }
+
+        .vertical-col { height: 100%; flex: 1; display: flex; flex-direction: column; border-right: 1px dashed #cbd5e1; min-width: 32px; padding: 2px; position: relative; gap: 2px; transition: 0.2s border; }
+        .vertical-col:last-child { border-right: none; }
+        .vertical-col.active { outline: 3px solid #6366f1; z-index: 100; border-radius: 6px; background: #f8fafc; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2); }
+
+        @keyframes pulse-red { 0% { box-shadow: inset 0 0 0 3px #ef4444, 0 0 0 0 rgba(239, 68, 68, 0.8); } 50% { box-shadow: inset 0 0 0 4px #dc2626, 0 0 0 8px rgba(239, 68, 68, 0); } 100% { box-shadow: inset 0 0 0 3px #ef4444, 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .has-clash { animation: pulse-red 1.5s infinite; background: #fee2e2 !important; border-radius: 4px; z-index: 50; }
+        .clash-banner { background: #fef08a; border-bottom: 2px solid #eab308; color: #854d0e; padding: 10px; text-align: center; font-weight: 900; font-size: 13px; text-transform: uppercase; display: none; z-index: 1000; position: sticky; top: 0; box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.2); }
+        
+        #tooltip { position: fixed; pointer-events: none; background: #0f172a; color: white; padding: 8px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; z-index: 99999; display: none; max-width: 250px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); line-height: 1.4; border: 1px solid #334155; }
+        #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 99999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { padding: 10px 20px; border-radius: 8px; font-size: 12px; font-weight: 900; color: white; opacity: 0; transform: translateY(20px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); text-align: center; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-error { background: #ef4444; border: 1px solid #b91c1c; }
+        .toast-success { background: #10b981; border: 1px solid #047857; }
+        .toast-info { background: #1e293b; border: 1px solid #0f172a; }
+
+        .drop-zone { width: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; border: 1.5px solid transparent; overflow: hidden; height: 32px; transition: 0.1s; text-align: center; padding: 1px; line-height: 1.1; }
+        .dz-sub { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; font-size: clamp(7px, 0.7vw, 10px); }
+        .dz-sub.has-val { background: #2563eb !important; color: white !important; border-color: #1e40af; }
+        .dz-tea { background: #ecfdf5; color: #065f46; border-color: #bbf7d0; font-size: clamp(7px, 0.7vw, 9px); }
+        .dz-tea.has-val { background: #059669 !important; color: white !important; border-color: #047857; }
+        .dz-day { background: #fffbeb; color: #92400e; border-color: #fde68a; font-size: clamp(6px, 0.6vw, 8px); }
+        .dz-day.has-val { background: #f59e0b !important; color: white !important; border-color: #d97706; }
+        .placeholder-text { opacity: 0.4; font-size: 7px; letter-spacing: 0.5px; }
+
+        .day-strip { position: absolute; bottom: 0; left: 0; width: 100%; min-width: 130px; background: #0f172a; display: flex; justify-content: space-around; padding: 4px; z-index: 500; border-radius: 6px 6px 0 0; }
+        .day-toggle { color: white; font-size: 9px; font-weight: 900; cursor: pointer; padding: 2px 4px; border-radius: 3px; border: 1px solid #334155; }
+        .day-toggle.selected { background: #2563eb; border-color: #60a5fa; }
+        .day-toggle.clash { opacity: 0.2; filter: grayscale(1); cursor: not-allowed; }
+        .day-toggle.master { background: #4f46e5; border-color: #818cf8; }
+        .add-split { position: absolute; right: 0; top: 0; bottom: 0; width: 18px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #cbd5e1; cursor: cell; transition: 0.2s; z-index: 10; }
+        .add-split:hover { background: #f0f9ff; color: #3b82f6; }
+        
+        .pill { padding: 8px 10px; background: white; border: 2px solid #cbd5e1; border-radius: 8px; font-weight: 900; cursor: grab; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+        .pill-count { background: #fff; border: 1px solid #cbd5e1; padding: 1px 5px; border-radius: 4px; font-size: 9px; min-width: 22px; text-align: center; }
+        .icon-btn { cursor: pointer; color: #94a3b8; font-size: 12px; transition: 0.1s; }
+        .icon-btn:hover { color: #000; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+
+        /* ADJUSTMENT UI STYLES */
+        .adj-modal { position: fixed; inset: 0; background: #f8fafc; z-index: 30000; overflow-y: auto; display: none; flex-direction: column; }
+        .absent-card { border: 2px solid #e2e8f0; border-radius: 12px; padding: 24px 16px; text-align: center; cursor: pointer; transition: 0.2s; background: white; }
+        .absent-card:hover { border-color: #94a3b8; }
+        .absent-card.is-absent { border-color: #ef4444; background: #fef2f2; color: #b91c1c; }
+        .adj-drop-zone { border: 2px dashed #cbd5e1; border-radius: 8px; height: 48px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #94a3b8; transition: 0.2s; width: 220px; flex-shrink: 0; }
+        .adj-drop-zone.drag-over { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+        .adj-filled { background: #8b5cf6; border: 2px solid #7c3aed; color: white; display: flex; justify-content: space-between; padding: 0 16px; }
+        .sub-pill { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: white; cursor: grab; margin-bottom: 8px; transition: 0.1s; }
+        .sub-pill:hover { border-color: #8b5cf6; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.1); }
+
+        /* PRINT ENGINE */
+        .print-only { display: none; }
+        @media print {
+            body > *:not(.is-printing) { display: none !important; }
+            .is-printing { display: block !important; position: static; margin: 0; padding: 0; width: 100%; background: white; }
+            
+            .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            .print-table th, .print-table td { border: 2px solid #000; padding: 12px; text-align: center; font-family: 'Inter Tight', sans-serif; }
+            .print-table th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: 900; text-transform: uppercase; font-size: 14px; }
+            .print-table td { font-weight: 700; font-size: 14px; }
+            .print-sub-text { font-size: 10px; color: #475569; font-weight: 400; margin-top: 4px; display: block; }
+            .print-header { border-bottom: 4px solid #000; padding-bottom: 10px; margin-bottom: 20px; text-align: center; font-weight: 900; font-size: 24px; text-transform: uppercase; }
+            .print-meta { display: flex; justify-content: space-between; font-weight: 900; font-size: 14px; margin-bottom: 10px; }
+            .print-sig { border: 2px dashed #cbd5e1; height: 30px; width: 120px; margin: 0 auto; }
+
+            .report-table { width: 100%; border-collapse: collapse; border: 2px solid #000; text-align: center; font-family: 'Inter Tight', sans-serif; }
+            .report-table th, .report-table td { border: 1px solid #000; padding: 6px; }
+            .report-table th { font-weight: 900; background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 12px; }
+            .recess-col { writing-mode: vertical-rl; text-orientation: mixed; font-weight: 900; background: #f8fafc !important; letter-spacing: 4px; font-size: 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .page-break { page-break-after: always; }
+            .page-break:last-child { page-break-after: auto; }
+
+            .matrix-print-container { display: flex; flex-direction: column; width: 100%; height: 96vh; border: 2px solid #000; box-sizing: border-box; font-family: 'Inter Tight', sans-serif; page-break-inside: avoid; }
+            .matrix-row { display: flex; flex: 1; min-height: 0; border-bottom: 1px solid #000; box-sizing: border-box; }
+            .matrix-row:last-child { border-bottom: none; }
+            .matrix-label { width: 70px; flex-shrink: 0; border-right: 2px solid #000; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; text-align: center; padding: 2px; }
+            .matrix-timeline { flex: 1; position: relative; }
+            .matrix-block { position: absolute; top: 0; bottom: 0; border-left: 1px solid #000; margin-left: -1px; box-sizing: border-box; display: flex; }
+            .matrix-block.recess { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; align-items: center; justify-content: center; writing-mode: vertical-rl; text-orientation: mixed; font-weight: 900; font-size: 10px; letter-spacing: 2px; color: #64748b; }
+            .matrix-header-row { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; flex: 0 0 35px; }
+            .matrix-header-block { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; line-height: 1.1; text-align: center; }
+        }
+    </style>
+</head>
+<body onclick="closeAllStrips(event)" onmousemove="updateTooltipPos(event)">
+
+    <div id="tooltip"></div>
+    <div id="toast-container"></div> 
+
+    <header class="h-16 bg-white shadow-sm border-b-2 border-slate-300 flex justify-between items-center px-6 sticky top-0 z-[1000] flex-shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="h-10 w-10 bg-black rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">LA</div>
+            <div>
+                <h1 class="text-xl font-black text-slate-800 uppercase tracking-tighter">Academic Architect</h1>
+                <p class="text-[10px] font-black text-indigo-600 tracking-widest uppercase">Version 7.80 (Phase 12) - Daily Slips</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <input type="range" min="0.5" max="1.5" step="0.05" value="1" oninput="document.documentElement.style.setProperty('--grid-scale', this.value)" class="mr-2">
+            <button onclick="openReportModal()" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-blue-700 transition shadow-lg">REPORTS 🖨️</button>
+            <button onclick="openAdjustments()" class="bg-purple-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-purple-700 transition shadow-lg">ADJUSTMENTS</button>
+            <div class="w-px h-6 bg-slate-300 mx-1"></div>
+            <button onclick="wipeClear()" class="bg-rose-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-rose-700 transition shadow-sm" title="Wipe Schedule">WIPE CLEAR</button>
+            <button onclick="undo()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-indigo-200 transition shadow-sm" title="Undo (Ctrl+Z)">UNDO</button>
+            <button onclick="exportData()" class="bg-black text-white px-5 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-slate-800 transition">SAVE</button>
+            <button onclick="document.getElementById('fileIn').click()" class="bg-amber-600 text-white px-5 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-amber-500 transition">LOAD</button>
+            <input type="file" id="fileIn" class="hidden" onchange="importData(event)">
+        </div>
+    </header>
+
+    <div id="clashBanner" class="clash-banner"></div>
+
+    <div class="app-shell">
+        <aside id="leftSidebar" class="sidebar sidebar-left" onclick="expandSidebar(event, 'leftSidebar')">
+            <div class="flex justify-between items-center p-3 pb-2 border-b-2 border-slate-100 hide-on-collapse">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subjects</span>
+                <div class="flex gap-1">
+                    <button onclick="openRegModal('sub')" class="text-indigo-600 font-black text-lg px-2 hover:bg-indigo-50 rounded">+</button>
+                    <button onclick="toggleSidebar(event, 'leftSidebar')" class="toggle-btn">«</button>
+                </div>
+            </div>
+            <div class="show-on-collapse">SUBJECTS »</div>
+            <div id="subPool" class="overflow-y-auto custom-scroll p-3 flex-1 hide-on-collapse"></div>
+        </aside>
+
+        <main id="scrollContainer" class="workspace custom-scroll">
+            <div id="mainGrid" class="main-grid"></div>
+        </main>
+
+        <aside id="rightSidebar" class="sidebar sidebar-right" onclick="expandSidebar(event, 'rightSidebar')">
+            <div class="flex justify-between items-center p-3 pb-2 border-b-2 border-slate-100 hide-on-collapse">
+                <div class="flex gap-1">
+                    <button onclick="toggleSidebar(event, 'rightSidebar')" class="toggle-btn">»</button>
+                    <button onclick="openRegModal('tea')" class="text-emerald-600 font-black text-lg px-2 hover:bg-emerald-50 rounded">+</button>
+                </div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teachers</span>
+            </div>
+            <div class="show-on-collapse">« TEACHERS</div>
+            <div id="teaPool" class="overflow-y-auto custom-scroll p-3 flex-1 hide-on-collapse"></div>
+        </aside>
+    </div>
+
+    <div id="adjModal" class="adj-modal">
+        <div class="h-20 bg-white border-b-2 border-slate-200 flex justify-between items-center px-10 shadow-sm sticky top-0 z-50 shrink-0">
+            <h2 class="text-2xl font-black uppercase text-slate-800">Daily Adjustments</h2>
+            <div class="flex gap-4">
+                <button onclick="closeAdjustments()" class="px-6 py-2 rounded-xl text-slate-500 font-black hover:bg-slate-100">CANCEL / CLOSE</button>
+            </div>
+        </div>
+
+        <div id="adjView1" class="p-10 max-w-7xl mx-auto w-full flex-1">
+            <div class="mb-8 bg-white p-6 rounded-2xl shadow-sm border-2 border-slate-200">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">1. Select Target Date</label>
+                <input type="date" id="adjDate" class="w-full max-w-sm border-2 border-slate-300 p-3 rounded-lg font-black text-lg text-slate-800 outline-none focus:border-purple-500" onchange="renderAdjTeachers()">
+            </div>
+            <div class="mb-8">
+                <div class="flex justify-between items-end mb-4">
+                    <label class="block text-xs font-black uppercase text-slate-500">2. Select Absent Teachers</label>
+                    <button onclick="goToAssignView()" class="bg-purple-600 text-white px-8 py-3 rounded-xl font-black text-sm hover:bg-purple-700 shadow-lg transition">NEXT: ASSIGN SUBS →</button>
+                </div>
+                <div id="adjTeaGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+            </div>
+        </div>
+
+        <div id="adjView2" class="p-10 max-w-7xl mx-auto w-full hidden flex-col flex-1 h-full">
+            <div class="flex justify-between items-center mb-6 shrink-0">
+                <button onclick="goToSetupView()" class="px-4 py-2 border-2 border-slate-300 rounded-lg font-black text-xs text-slate-600 hover:bg-white bg-slate-50 shadow-sm">← BACK</button>
+                <button onclick="autoAdjust()" class="bg-purple-600 text-white px-6 py-2 rounded-lg font-black text-sm hover:bg-purple-700 shadow-md">⚡ AUTO-ADJUST (FAIR LOAD)</button>
+            </div>
+            <div class="flex gap-8 flex-1 overflow-hidden">
+                <div class="flex-1 flex flex-col min-w-0">
+                    <h3 class="text-xs font-black uppercase text-slate-500 mb-3 shrink-0">Affected Periods</h3>
+                    <div id="adjPeriodsList" class="flex-1 overflow-y-auto custom-scroll pr-2 flex flex-col gap-3"></div>
+                </div>
+                <div class="w-80 flex flex-col shrink-0 bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm">
+                    <h3 class="text-xs font-black uppercase text-slate-500 mb-3 shrink-0">Available Substitutes</h3>
+                    <div id="adjSubsList" class="flex-1 overflow-y-auto custom-scroll pr-1 flex flex-col gap-2"></div>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-4 items-center shrink-0 border-t-2 border-slate-200 pt-6">
+                <button onclick="printCirculation()" class="flex-1 bg-purple-600 text-white px-6 py-4 rounded-xl font-black hover:bg-purple-700 shadow-xl transition text-sm">PRINT CIRCULATION</button>
+                <button onclick="printTeacherDailySlips()" class="flex-1 bg-indigo-600 text-white px-6 py-4 rounded-xl font-black hover:bg-indigo-700 shadow-xl transition text-sm">PRINT TEACHER SLIPS</button>
+                <button onclick="clearAllCovers()" class="px-8 py-4 rounded-xl font-black text-rose-600 bg-rose-50 border-2 border-rose-200 hover:bg-rose-100 transition text-sm shrink-0">CLEAR ALL SUBS</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[40000] backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border-2 border-slate-200">
+            <h2 class="font-black uppercase text-xl mb-6 border-b-2 border-slate-100 pb-3 text-slate-800">Generate Report</h2>
+            
+            <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">REPORT TYPE</label>
+            <select id="repType" class="w-full border-2 border-slate-300 p-3 rounded-xl mb-5 font-bold text-sm outline-none focus:border-blue-500" onchange="updateReportTargets()">
+                <option value="class">Class-Wise Timetable</option>
+                <option value="teacher">Teacher-Wise Timetable</option>
+                <option value="matrix">Master Matrix (Proportional)</option>
+            </select>
+
+            <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">SELECT TARGET</label>
+            <select id="repTarget" class="w-full border-2 border-slate-300 p-3 rounded-xl mb-8 font-bold text-sm outline-none focus:border-blue-500"></select>
+
+            <div class="flex gap-3">
+                <button onclick="executePrintReport()" class="flex-1 bg-emerald-600 text-white p-3 rounded-xl font-black text-sm shadow-md hover:bg-emerald-700 transition">GENERATE PDF</button>
+                <button onclick="closeReportModal()" class="flex-1 bg-slate-100 text-slate-600 p-3 rounded-xl font-black text-sm hover:bg-slate-200 transition">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="printLayout" class="print-only"></div>
+    <div id="reportLayout" class="print-only"></div>
+
+    <div id="regModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[20000] backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-80 border-2 border-black">
+            <h2 id="modalTitle" class="font-black uppercase text-sm mb-4 border-b-2 pb-2">Entry Manager</h2>
+            <input id="modalShort" type="text" placeholder="Short Form" class="w-full border-2 p-2 rounded mb-2 uppercase font-black">
+            <input id="modalFull" type="text" placeholder="Full Name" class="w-full border-2 p-2 rounded mb-2 text-sm font-bold">
+            <input id="modalDesig" type="text" placeholder="Designation (Optional)" class="w-full border-2 p-2 rounded mb-4 text-[10px] font-bold">
+            <div class="flex gap-2">
+                <button onclick="saveRegistry()" class="flex-1 bg-black text-white p-2 rounded font-black text-xs">SAVE</button>
+                <button onclick="closeModal('regModal')" class="flex-1 bg-slate-100 p-2 rounded font-black text-xs">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[20000] backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-72 border-2 border-black">
+            <h2 id="clsTitle" class="font-black uppercase text-sm mb-4 border-b-2 pb-2">Class Manager</h2>
+            <input id="clsName" type="text" placeholder="e.g. 10TH" class="w-full border-2 p-2 rounded mb-4 uppercase font-black text-center text-lg outline-none focus:border-indigo-400">
+            <div class="flex gap-2">
+                <button onclick="saveClass()" class="flex-1 bg-black text-white p-2 rounded font-black text-xs hover:bg-slate-800">SAVE</button>
+                <button onclick="closeModal('clsModal')" class="flex-1 bg-slate-100 text-slate-500 p-2 rounded font-black text-xs hover:bg-slate-200">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="perModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[20000] backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-80 border-2 border-black">
+            <h2 id="perTitle" class="font-black uppercase text-sm mb-4 border-b-2 pb-2">Period Guardian</h2>
+            <input id="perName" type="text" placeholder="P1, P2, etc." class="w-full border-2 p-2 rounded mb-2 uppercase font-black">
+            <div class="flex gap-2 mb-2">
+                <div class="flex-1">
+                    <label class="text-[9px] font-black opacity-40">START</label>
+                    <input id="perS" type="time" class="w-full border-2 p-1 rounded font-bold text-xs">
+                </div>
+                <div class="flex-1">
+                    <label class="text-[9px] font-black opacity-40">END</label>
+                    <input id="perE" type="time" class="w-full border-2 p-1 rounded font-bold text-xs">
+                </div>
+            </div>
+            <label class="flex items-center gap-2 mb-4 cursor-pointer">
+                <input type="checkbox" id="perRecess" class="w-4 h-4">
+                <span class="text-[10px] font-black">MARK AS RECESS</span>
+            </label>
+            <div class="flex gap-2">
+                <button onclick="savePeriod()" class="flex-1 bg-black text-white p-2 rounded font-black text-xs">SAVE</button>
+                <button onclick="closeModal('perModal')" class="flex-1 bg-slate-100 p-2 rounded font-black text-xs">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // XSS Sanitizer & Unicode Bullet Filter
+        const sanitize = (str) => {
+            if (!str) return '';
+            let cleanStr = str.replace(/[\u2022\u25AA\u2043\u2219\t]/g, '');
+            cleanStr = cleanStr.replace(/^[\s*\-_#]+|[\s*\-_#]+$/g, '');
+            const temp = document.createElement('div');
+            temp.textContent = cleanStr.trim();
+            return temp.innerHTML.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+        };
+
+        // Schema Validator
+        function validateState(st) {
+            if (!st || typeof st !== 'object') return false;
+            if (!Array.isArray(st.rules)) return false;
+            if (!Array.isArray(st.classes)) return false;
+            if (!st.blueprints || typeof st.blueprints !== 'object') return false;
+            if (!st.registry || typeof st.registry !== 'object') return false;
+            if (!Array.isArray(st.registry.subjects)) return false;
+            if (!Array.isArray(st.registry.teachers)) return false;
+            return true;
+        }
+
+        const minToPx = (m) => m * 4;
+        const formatTime = (m) => { const h = Math.floor(m/60)%12||12, mins = m%60, p = m>=720?'PM':'AM'; return `${h}:${String(mins).padStart(2,'0')}${p}`; }
+        const timeToMin = (t) => { if(!t) return 0; const [h,m] = t.split(':').map(Number); return h * 60 + m; }
+        const minToTime = (m) => { const h = Math.floor(m/60), mins = m%60; return `${String(h).padStart(2,'0')}:${String(mins).padStart(2,'0')}`; }
+        const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const generateId = (prefix) => prefix + Date.now() + Math.random().toString(36).substring(2, 6);
+
+        let state = { registry: { subjects: [], teachers: [] }, classes: [], blueprints: { junior: [], senior: [] }, rules: [] };
+        let dragged = null, activeRuleId = null, editingReg = { type: '', idx: -1 }, editingCls = { name: '', tier: '' }, editingPer = { id: '', tier: '' };
+        let currentClashMap = {}; 
+        let historyStack = []; 
+
+        let adjustState = { dateStr: '', dayIndex: -1, absent: [], covers: {}, draggedSub: null };
+
+        // Cross-Tab Atomic Sync Interceptor
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'architect_matrix_state' && e.newValue) {
+                try {
+                    const freshState = JSON.parse(e.newValue);
+                    if (validateState(freshState)) {
+                        state = freshState;
+                        if (document.getElementById('adjModal').style.display === 'flex') {
+                            renderAdjBoard();
+                        } else {
+                            render();
+                        }
+                        showToast("🔄 Timetable state synchronized across tabs.", "info");
+                    }
+                } catch (err) { console.error("Tab synchronization frame collision prevented.", err); }
+            }
+        });
+
+        window.onload = () => {
+            try { 
+                const saved = localStorage.getItem('architect_matrix_state'); 
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if(validateState(parsed)) state = parsed;
+                    else throw new Error("Schema Validation Failed.");
+                }
+            } 
+            catch (e) { console.error("Corrupted cache safely wiped.", e); localStorage.removeItem('architect_matrix_state'); }
+            
+            if (!state.blueprints.junior) state.blueprints.junior = [];
+            if (!state.blueprints.senior) state.blueprints.senior = [];
+            
+            render();
+            document.getElementById('adjDate').value = new Date().toISOString().split('T')[0];
+        };
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div'); toast.className = `toast toast-${type}`; toast.innerHTML = msg;
+            container.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function saveStateToHistory() { historyStack.push(JSON.stringify(state)); if(historyStack.length > 20) historyStack.shift(); }
+        function undo() { if(historyStack.length > 0) { state = JSON.parse(historyStack.pop()); localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); showToast("Undo successful", "info"); } else { showToast("Nothing to undo", "error"); } }
+        document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); } });
+
+        function wipeClear() { if(confirm("DANGER: Wipe entire schedule?")) { saveStateToHistory(); state = { registry: { subjects: [], teachers: [] }, classes: [], blueprints: { junior: [], senior: [] }, rules: [] }; localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); showToast("Schedule wiped.", "error"); } }
+        function toggleSidebar(e, id) { e.stopPropagation(); document.getElementById(id).classList.toggle('collapsed'); }
+        function expandSidebar(e, id) { const el = document.getElementById(id); if(el.classList.contains('collapsed')) el.classList.remove('collapsed'); }
+
+        function showTooltip(e, txt) { const t = document.getElementById('tooltip'); t.innerHTML = txt; t.style.display = 'block'; updateTooltipPos(e); }
+        function updateTooltipPos(e) { const t = document.getElementById('tooltip'); if (t.style.display === 'block') { t.style.left = (e.clientX + 15) + 'px'; t.style.top = (e.clientY + 15) + 'px'; } }
+        function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
+        
+        function getFullSub(s) { const item = state.registry.subjects.find(x => x.s === s); return item ? item.f : s; }
+        function getFullTea(s) { const item = state.registry.teachers.find(x => x.s === s); return item ? item.f : s; }
+
+        function showNameTooltip(e, shortCode, type) {
+            if (!shortCode || !state.registry) return;
+            const list = type === 'sub' ? (state.registry.subjects || []) : (state.registry.teachers || []);
+            const item = list.find(x => x.s === shortCode);
+            if (!item) return;
+            let txt = `<b>${sanitize(item.f)}</b>`; if (item.d) txt += `<br><span style="color:#94a3b8;font-size:9px;">${sanitize(item.d)}</span>`;
+            showTooltip(e, txt);
+        }
+
+        function showClashTooltip(e, ruleId) { if (currentClashMap[ruleId]) showTooltip(e, currentClashMap[ruleId].join('<br>')); }
+
+        function getRuleDetails(r) {
+            if (!r) return null;
+            const cls = state.classes.find(c => c.name === r.class);
+            if (!cls || !cls.tier) return null;
+            
+            const tierBlueprint = state.blueprints[cls.tier];
+            if (!tierBlueprint || !Array.isArray(tierBlueprint)) return null;
+            
+            const p = tierBlueprint.find(x => x.id === r.periodId);
+            
+            if (!p || p.s === undefined || p.e === undefined) {
+                console.warn(`Data Linkage Breakup: Rule ${r.id} points to an invalid period mapping (${r.periodId}).`);
+                return { clsTier: cls.tier, pName: "UNKNOWN", s: 0, e: 0 }; 
+            }
+            return { clsTier: cls.tier, pName: p.n, s: Number(p.s), e: Number(p.e) };
+        }
+
+        function auditClashes() {
+            let clashMap = {}; let count = 0;
+            if(!state.rules || !state.classes || !state.blueprints) return { map: clashMap, count };
+            state.rules.forEach(r => {
+                if(!r || !r.tea || !r.days) return;
+                const rDet = getRuleDetails(r);
+                if(!rDet) return;
+                r.days.forEach((isActive, dIdx) => {
+                    if(!isActive) return;
+                    state.rules.forEach(other => {
+                        if(!other || r.id === other.id || other.tea !== r.tea || !other.days || !other.days[dIdx]) return;
+                        if(r.sub === 'CCA' && other.sub === 'CCA' && r.class !== other.class) return; // Symmetric CCA Bypass
+                        const oDet = getRuleDetails(other);
+                        if(!oDet) return;
+                        if(rDet.s < oDet.e && rDet.e > oDet.s) { if(!clashMap[r.id]) { clashMap[r.id] = []; count++; } clashMap[r.id].push(`&#9888; Double-Booked: ${r.tea} is also in <b>${other.class}</b> on <b>${DAY_NAMES[dIdx]}</b>.`); }
+                    });
+                });
+            });
+            for(let id in clashMap) clashMap[id] = [...new Set(clashMap[id])]; return { map: clashMap, count };
+        }
+
+        function render() {
+            hideTooltip(); 
+            if (!state) state = {}; if (!state.rules) state.rules = []; if (!state.classes) state.classes = []; if (!state.blueprints) state.blueprints = { junior: [], senior: [] }; if (!state.registry) state.registry = { subjects: [], teachers: [] };
+            
+            state.rules = state.rules.filter(r => r && (r.sub || r.tea || (r.days && r.days.some(d => d))));
+            state.classes.sort((a,b) => { const pA = parseInt(a.name) || 999; const pB = parseInt(b.name) || 999; return (a.tier||'') === (b.tier||'') ? pA - pB : ((a.tier||'') === 'junior' ? -1 : 1); });
+            Object.keys(state.blueprints).forEach(tier => { if(Array.isArray(state.blueprints[tier])) { state.blueprints[tier].sort((a, b) => (a.s||0) - (b.s||0)); } });
+            
+            const audit = auditClashes(); currentClashMap = audit.map; 
+            const banner = document.getElementById('clashBanner');
+            if(audit.count > 0) { banner.style.display = 'block'; banner.innerHTML = `⚠️ ${audit.count} Schedule Conflicts Detected. Hover over orange Day Pills for details.`; } else { banner.style.display = 'none'; }
+
+            renderSidebar();
+            const grid = document.getElementById('mainGrid'); grid.innerHTML = '';
+            let currentTier = null;
+            state.classes.forEach(cls => {
+                if (!cls || !cls.tier) return;
+                if (cls.tier !== currentTier) { currentTier = cls.tier; grid.appendChild(createHeader(currentTier)); }
+                grid.appendChild(createRow(cls, audit.map));
+            });
+            if(!state.classes.some(c=>c.tier==='junior')) grid.appendChild(createHeader('junior'));
+            if(!state.classes.some(c=>c.tier==='senior')) grid.appendChild(createHeader('senior'));
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+        }
+
+        function renderSidebar() {
+            const workload = calculateWorkload();
+            const sPool = document.getElementById('subPool'), tPool = document.getElementById('teaPool');
+            sPool.innerHTML = ''; tPool.innerHTML = '';
+            state.registry.subjects.forEach((v, i) => sPool.appendChild(createSidePill('sub', v, i, workload.sub[v.s] || 0)));
+            state.registry.teachers.forEach((v, i) => tPool.appendChild(createSidePill('tea', v, i, workload.tea[v.s] || 0)));
+        }
+
+        function createSidePill(type, item, idx, count) {
+            const d = document.createElement('div'); d.className = 'pill'; d.draggable = true;
+            const cleanShort = sanitize(item.s);
+            const cleanDesig = item.d ? sanitize(item.d) : '';
+            const desigHtml = cleanDesig ? `<span class="text-[8px] font-normal opacity-50 block leading-tight truncate w-20">${cleanDesig}</span>` : '';
+            d.innerHTML = `<div><span>${cleanShort}</span>${desigHtml}</div><div class="flex gap-2 items-center"><span class="pill-count">${count}</span><i class="icon-btn text-indigo-600 hover:text-indigo-900" onclick="openRegModal('${type}', ${idx})">✎</i><i class="icon-btn text-rose-600 hover:text-rose-900" onclick="deleteRegistry(event, '${type}', ${idx})">🗑</i></div>`;
+            d.ondragstart = () => dragged = {type, val: item.s};
+            d.onmouseover = (e) => showNameTooltip(e, item.s, type);
+            d.onmouseleave = hideTooltip; return d;
+        }
+
+        function createHeader(tier) {
+            const row = document.createElement('div'); row.className = 'period-header architect-row';
+            row.innerHTML = `<div class="label-box bg-slate-900 border-r-4 border-black text-[10px] text-white flex justify-between px-3 box-border" style="width: var(--label-width)"><span>${(tier||'').toUpperCase()} TIER</span><button onclick="openClsModal(null, '${tier}')" class="text-white hover:text-indigo-300 font-black text-lg leading-none" title="Add Class to Tier">+</button></div>`;
+            if(state.blueprints && Array.isArray(state.blueprints[tier])) {
+                state.blueprints[tier].forEach(p => {
+                    const div = document.createElement('div'); div.className = 'p-block'; div.style.width = minToPx((p.e||0) - (p.s||0)) + 'px';
+                    div.innerHTML = `${sanitize(p.n)} <span>${formatTime(p.s||0)}-${formatTime(p.e||0)}</span><div class="hover-actions bg-black/60 p-1 rounded backdrop-blur"><i class="icon-btn text-white" onclick="openPerModal('${p.id}', '${tier}')">✎</i><i class="icon-btn text-red-400" onclick="deletePeriod('${p.id}', '${tier}')">🗑</i></div>`;
+                    row.appendChild(div);
+                });
+            }
+            const tierAdd = document.createElement('div'); tierAdd.className = 'flex items-center px-4 cursor-pointer hover:bg-white/10 flex-shrink-0'; tierAdd.innerHTML = `<span onclick="openPerModal(null, '${tier}')" class="text-xl font-black">+</span>`; row.appendChild(tierAdd); return row;
+        }
+
+        function createRow(cls, clashMap) {
+            const row = document.createElement('div'); row.className = 'architect-row';
+            const safeClassName = sanitize(cls.name);
+            row.innerHTML = `<div class="label-box relative" data-class-name="${safeClassName}">${safeClassName}<div class="hover-actions"><i class="icon-btn text-indigo-600" onclick="openClsModal('${safeClassName}', '${cls.tier}')">✎</i><i class="icon-btn text-rose-600" onclick="deleteClass('${safeClassName}')">🗑</i></div></div>`;
+            if(state.blueprints && Array.isArray(state.blueprints[cls.tier])) {
+                state.blueprints[cls.tier].forEach(p => {
+                    const cell = document.createElement('div'); const width = minToPx((p.e||0) - (p.s||0)) + 'px';
+                    if (p.r) { cell.className = 'recess-block'; cell.innerText = 'RECESS'; cell.style.width = width; } else {
+                        cell.className = 'time-slot'; cell.style.width = width; cell.ondragover = e => e.preventDefault(); cell.ondrop = e => handleGenericDrop(e, cls.name, p.id);
+                        
+                        const slotsForThisPeriod = state.rules ? state.rules.filter(r => r && r.class === cls.name && r.periodId === p.id) : [];
+                        if (slotsForThisPeriod.length === 0) {
+                            const placeholder = document.createElement('div');
+                            placeholder.className = 'w-full h-full flex items-center justify-center text-slate-300 font-bold text-xs pointer-events-none opacity-40';
+                            placeholder.innerText = 'Empty Slot';
+                            cell.appendChild(placeholder);
+                        } else {
+                            slotsForThisPeriod.forEach(rule => {
+                                const isClash = clashMap[rule.id]; const clashClass = isClash ? 'has-clash' : '';
+                                const subEvents = rule.sub ? `onmouseover="showNameTooltip(event, '${rule.sub}', 'sub')" onmouseleave="hideTooltip()"` : ''; const teaEvents = rule.tea ? `onmouseover="showNameTooltip(event, '${rule.tea}', 'tea')" onmouseleave="hideTooltip()"` : ''; const dayEvents = isClash ? `onmouseover="showClashTooltip(event, '${rule.id}')" onmouseleave="hideTooltip()"` : '';
+                                const col = document.createElement('div'); col.className = `vertical-col ${activeRuleId === rule.id ? 'active' : ''} ${clashClass}`;
+                                col.innerHTML = `<div class="drop-zone dz-sub ${rule.sub?'has-val':''}" onclick="clearValue(event, '${rule.id}', 'sub')" ondrop="handleTargetedDrop(event, '${rule.id}', 'sub')" ${subEvents}>${rule.sub ? rule.sub : '<span class="placeholder-text">+ SUB</span>'}</div><div class="drop-zone dz-tea ${rule.tea?'has-val':''}" onclick="clearValue(event, '${rule.id}', 'tea')" ondrop="handleTargetedDrop(event, '${rule.id}', 'tea')" ${teaEvents}>${rule.tea ? rule.tea : '<span class="placeholder-text">+ TEA</span>'}</div><div class="drop-zone dz-day ${(rule.days||[]).some(d=>d)?'has-val':''}" onclick="toggleStrip(event, '${rule.id}')" ${dayEvents}>(${getDayLabel(rule.days||[])})</div>`;
+                                if(activeRuleId === rule.id) col.appendChild(createDayStrip(rule)); cell.appendChild(col);
+                            });
+                        }
+                        const plus = document.createElement('div'); plus.className = 'add-split'; plus.innerText = '+'; plus.ondrop = e => { e.stopPropagation(); handleGenericDrop(e, cls.name, p.id); }; cell.appendChild(plus);
+                    }
+                    row.appendChild(cell);
+                });
+            } return row;
+        }
+
+        function handleGenericDrop(e, cls, pId) { 
+            e.preventDefault(); saveStateToHistory(); 
+            const cleanVal = dragged.val ? dragged.val.trim() : '';
+            let existingRule = state.rules.find(r => r.class === cls && r.periodId === pId && (!r.sub || r.sub === cleanVal || !r.tea || r.tea === cleanVal));
+            
+            if (existingRule) {
+                if (dragged.type === 'sub') existingRule.sub = cleanVal; else existingRule.tea = cleanVal;
+                activeRuleId = existingRule.id;
+            } else {
+                const rid = generateId('r'); 
+                const nr = { id: rid, class: cls, periodId: pId, sub: dragged.type === 'sub' ? cleanVal : '', tea: dragged.type === 'tea' ? cleanVal : '', days: [false,false,false,false,false,false] }; 
+                state.rules.push(nr); activeRuleId = rid; 
+            }
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+            render(); 
+        }
+
+        function handleTargetedDrop(e, rid, type) { 
+            e.preventDefault(); e.stopPropagation(); if(dragged.type !== type) return; 
+            const r = state.rules.find(x => x.id === rid); if (!r) return;
+            const cleanVal = dragged.val ? dragged.val.trim() : '';
+
+            if (type === 'tea') { 
+                for(let i=0; i<6; i++) { 
+                    if(r.days && r.days[i] && checkClash(cleanVal, i, r.class, r.periodId, r.id)) { showToast(`⚠️ Rejection: ${cleanVal} is busy on ${DAY_NAMES[i]} at this time.`, 'error'); return; } 
+                } 
+            } 
+            saveStateToHistory(); 
+
+            const activeDaysCount = r.days.filter(d => d).length;
+            if (activeDaysCount > 1 && adjustState.dayIndex !== -1) {
+                const dIdx = adjustState.dayIndex;
+                if (r.days[dIdx]) {
+                    r.days[dIdx] = false;
+                    const splitId = generateId('r');
+                    const splitRule = JSON.parse(JSON.stringify(r));
+                    splitRule.id = splitId;
+                    splitRule.days = [false, false, false, false, false, false];
+                    splitRule.days[dIdx] = true;
+                    splitRule[type] = cleanVal;
+                    state.rules.push(splitRule);
+                    localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+                    render();
+                    return;
+                }
+            }
+
+            r[type] = cleanVal; 
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+            render(); 
+        }
+
+        function clearValue(e, rid, type) { 
+            e.stopPropagation(); saveStateToHistory(); 
+            const r = state.rules.find(x => x.id === rid); 
+            if(r) {
+                r[type] = ''; 
+                if (!r.sub.trim() && !r.tea.trim()) r.days = [false, false, false, false, false, false];
+            }
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+            render(); 
+        }
+
+        function getDayLabel(days) { const active = []; days.forEach((d, i) => { if (d) active.push(i + 1); }); if (active.length === 0) return "0"; const isContinuous = active.every((val, i) => i === 0 || val === active[i - 1] + 1); if (isContinuous && active.length > 1) return `${active[0]}-${active[active.length - 1]}`; return active.join(','); }
+        
+        function createDayStrip(rule) { const strip = document.createElement('div'); strip.className = 'day-strip'; strip.onclick = (e) => e.stopPropagation(); const allSelected = (rule.days||[]).every(d => d); strip.innerHTML += `<div class="day-toggle master ${allSelected?'selected':''}" onclick="toggleAllDays(event, '${rule.id}', ${allSelected})">1-6</div>`; ["M","T","W","T","F","S"].forEach((d, i) => { const isClash = checkClash(rule.tea, i, rule.class, rule.periodId, rule.id); strip.innerHTML += `<div class="day-toggle ${(rule.days||[])[i]?'selected':''} ${isClash?'clash':''}" onclick="toggleDay(event, '${rule.id}', ${i}, ${isClash})">${d}</div>`; }); return strip; }
+        
+        function toggleAllDays(e, rid, currentlyAll) { e.stopPropagation(); saveStateToHistory(); const r = state.rules.find(x => x.id === rid); if(!r) return; if (currentlyAll) { r.days = [false,false,false,false,false,false]; } else { for(let i=0; i<6; i++) { if(!checkClash(r.tea, i, r.class, r.periodId, r.id)) r.days[i] = true; } } localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); }
+        
+        function checkClash(tea, day, clsName, pId, exId) { 
+            if(!tea || !state.classes || !state.blueprints || !state.rules) return false; 
+            const cls = state.classes.find(c => c.name === clsName); if(!cls) return false; 
+            const p = state.blueprints[cls.tier] && state.blueprints[cls.tier].find(x => x.id === pId); if(!p) return false; 
+            for(let r of state.rules) { 
+                if(!r || r.id === exId || r.tea !== tea || !r.days || !r.days[day]) continue; 
+                if(r.sub === 'CCA' && clsName !== r.class) continue;
+                const rDet = getRuleDetails(r);
+                if(!rDet) continue; 
+                if(Number(p.s) < Number(rDet.e) && Number(p.e) > Number(rDet.s)) return true; 
+            } 
+            return false; 
+        }
+
+        function toggleStrip(e, id) { e.stopPropagation(); activeRuleId = (activeRuleId === id) ? null : id; render(); }
+        function toggleDay(e, rid, idx, clash) { e.stopPropagation(); if(clash) return; saveStateToHistory(); const r = state.rules.find(x => x.id === rid); if(r && r.days) r.days[idx] = !r.days[idx]; localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); }
+        function closeAllStrips(e) { if(!e.target.closest('.day-strip') && !e.target.closest('.dz-day')) { activeRuleId = null; render(); } }
+        function calculateWorkload() { let c = {sub:{}, tea:{}}; if(!state.rules) return c; state.rules.forEach(r => { if(!r) return; const n = (r.days||[]).filter(d=>d).length; if(r.sub) c.sub[r.sub] = (c.sub[r.sub]||0)+n; if(r.tea) c.tea[r.tea] = (c.tea[r.tea]||0)+n; }); return c; }
+
+        function openPerModal(id = null, tier) { editingPer = { id, tier }; const p = id && state.blueprints[tier] ? state.blueprints[tier].find(x=>x.id===id) : {n:'', s:600, e:640, r:false}; document.getElementById('perTitle').innerText = id ? 'Edit Period' : 'Add Period'; document.getElementById('perName').value = p.n || ''; document.getElementById('perS').value = minToTime(p.s || 600); document.getElementById('perE').value = minToTime(p.e || 640); document.getElementById('perRecess').checked = p.r || false; document.getElementById('perModal').style.display = 'flex'; }
+        
+        function savePeriod() { 
+            const n = sanitize(document.getElementById('perName').value.toUpperCase().trim()); 
+            const s = timeToMin(document.getElementById('perS').value); 
+            const e = timeToMin(document.getElementById('perE').value); 
+            const r = document.getElementById('perRecess').checked; 
+            if(!n || s >= e) { showToast("Invalid inputs or times.", 'error'); return; } 
+            const tierList = state.blueprints[editingPer.tier] || []; const overlap = tierList.find(p => p.id !== editingPer.id && ((s < Number(p.e) && e > Number(p.s)))); if(overlap) { showToast(`Overlap Conflict! Intersects with ${overlap.n}.`, 'error'); return; } 
+            saveStateToHistory(); 
+            if(editingPer.id) { const p = tierList.find(x=>x.id===editingPer.id); if(p) Object.assign(p, {n, s, e, r}); } 
+            else { tierList.push({id: generateId('p'), n, s, e, r}); } 
+            if(!state.blueprints[editingPer.tier]) state.blueprints[editingPer.tier] = tierList; 
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+            closeModal('perModal'); render(); 
+        }
+        
+        function deletePeriod(id, tier) { if(confirm("DANGER: Delete period? All assignments in this time slot for this tier will be permanently purged.")){ saveStateToHistory(); if(state.blueprints[tier]) state.blueprints[tier] = state.blueprints[tier].filter(x=>x.id !== id); if(state.rules) state.rules = state.rules.filter(r => r.periodId !== id); localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); showToast("Period and tied assignments purged.", "info"); } }
+
+        function openClsModal(name = null, tier) { editingCls = { name, tier }; document.getElementById('clsTitle').innerText = name ? 'Edit Class' : 'Add Class to Tier'; document.getElementById('clsName').value = name || ''; document.getElementById('clsModal').style.display = 'flex'; }
+        
+        function saveClass() { 
+            const n = sanitize(document.getElementById('clsName').value.toUpperCase().trim()); 
+            if(!n) return; 
+            if(editingCls.name) { 
+                if (n !== editingCls.name && state.classes.some(c => c.name === n)) { showToast("Class already exists.", "error"); return; } 
+                saveStateToHistory(); const targetCls = state.classes.find(x=>x.name===editingCls.name); if(targetCls) targetCls.name = n; state.rules.forEach(r => { if(r && r.class === editingCls.name) r.class = n; }); 
+            } else { 
+                if(state.classes.some(c=>c.name === n)) { showToast("Class already exists.", "error"); return; } 
+                saveStateToHistory(); state.classes.push({name: n, tier: editingCls.tier}); 
+            } 
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+            closeModal('clsModal'); render(); 
+        }
+        
+        function deleteClass(name) { if(confirm(`WARNING: Delete Class ${name}? All assignments for this class will be permanently lost.`)){ saveStateToHistory(); state.classes = state.classes.filter(x=>x.name !== name); state.rules = state.rules.filter(r=>r.class !== name); localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); showToast(`Class ${name} deleted.`, "info"); } }
+
+        function openRegModal(type, idx = -1) { editingReg = { type, idx }; const list = type === 'sub' ? (state.registry.subjects||[]) : (state.registry.teachers||[]); const item = idx === -1 ? {s:'', f:'', d:''} : list[idx]; if(!item) return; document.getElementById('modalTitle').innerText = idx === -1 ? `Add ${type === 'sub' ? 'Subject' : 'Teacher'}` : `Edit Entry`; document.getElementById('modalShort').value = item.s || ''; document.getElementById('modalFull').value = item.f || ''; document.getElementById('modalDesig').value = item.d || ''; document.getElementById('regModal').style.display = 'flex'; document.getElementById('modalDesig').style.display = type === 'tea' ? 'block' : 'none'; }
+        
+        function saveRegistry() { 
+            const s = sanitize(document.getElementById('modalShort').value.toUpperCase().trim()), f = sanitize(document.getElementById('modalFull').value.trim()), d = sanitize(document.getElementById('modalDesig').value.trim()); 
+            if(!s) return; const list = editingReg.type==='sub' ? state.registry.subjects : state.registry.teachers; 
+            if(editingReg.idx === -1 && list.some(x => x.s === s)) { showToast(`Code '${s}' already exists.`, "error"); return; } 
+            saveStateToHistory(); const entry = editingReg.type === 'sub' ? { f, s } : { s, f, d }; 
+            if(editingReg.idx===-1) list.push(entry); 
+            else { 
+                const old = list[editingReg.idx].s; list[editingReg.idx] = entry; 
+                state.rules.forEach(r => { if(!r) return; if(editingReg.type==='sub' && r.sub===old) r.sub=s; if(editingReg.type==='tea' && r.tea===old) r.tea=s; }); 
+            } 
+            localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+            closeModal('regModal'); render(); 
+        }
+        
+        function deleteRegistry(e, type, idx) { 
+            e.stopPropagation(); const list = type === 'sub' ? state.registry.subjects : state.registry.teachers; const item = list[idx]; if(!item) return; 
+            if(confirm(`WARNING: Delete ${item.s}? It will be permanently removed from all active assignments in the grid.`)) { 
+                saveStateToHistory(); 
+                state.rules.forEach(r => { if(!r) return; if(type === 'sub' && r.sub === item.s) r.sub = ''; if(type === 'tea' && r.tea === item.s) r.tea = ''; }); 
+                if(type === 'tea') {
+                    adjustState.absent = adjustState.absent.filter(x => x !== item.s);
+                    Object.keys(adjustState.covers).forEach(k => { if(adjustState.covers[k] === item.s) delete adjustState.covers[k]; });
+                }
+                list.splice(idx, 1); localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); showToast(`${item.s} deleted.`, "info"); 
+            } 
+        }
+        
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function exportData() { const b = new Blob([JSON.stringify(state)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'timetable.json'; a.click(); showToast("Data exported successfully.", "success"); }
+        
+        function importData(e) { 
+            const file = e.target.files[0]; if (!file) return; const r = new FileReader(); 
+            r.onload = () => { 
+                try { 
+                    const parsed = JSON.parse(r.result); 
+                    if(!validateState(parsed)) throw new Error("Invalid schema structure.");
+                    saveStateToHistory(); 
+                    state = parsed; 
+                    if (!state.blueprints.junior) state.blueprints.junior = [];
+                    if (!state.blueprints.senior) state.blueprints.senior = [];
+                    localStorage.setItem('architect_matrix_state', JSON.stringify(state));
+                    render(); showToast("Data loaded successfully.", "success"); 
+                } catch (err) { showToast("Load Failed: " + err.message, "error"); } 
+                e.target.value = ''; 
+            }; 
+            r.readAsText(file); 
+        }
+
+        function setPrintOrientation(orient) {
+            let s = document.getElementById('printPageStyle');
+            if(!s) { s = document.createElement('style'); s.id = 'printPageStyle'; document.head.appendChild(s); }
+            s.innerHTML = orient === 'landscape' ? '@page { size: landscape; margin: 10mm; }' : '@page { size: A4 portrait; margin: 15mm; }';
+        }
+
+        /* ================== DAILY SUBS ================== */
+        function openAdjustments() { adjustState = { dateStr: document.getElementById('adjDate').value, dayIndex: -1, absent: [], covers: {}, draggedSub: null }; document.getElementById('adjModal').style.display = 'flex'; goToSetupView(); renderAdjTeachers(); }
+        function closeAdjustments() { document.getElementById('adjModal').style.display = 'none'; }
+        function goToSetupView() { document.getElementById('adjView1').style.display = 'block'; document.getElementById('adjView2').style.display = 'none'; }
+        function goToAssignView() { if(adjustState.dayIndex === -1) { showToast("Selected date is a Sunday/Invalid.", "error"); return; } if(adjustState.absent.length === 0) { showToast("Please select at least one absent teacher.", "error"); return; } document.getElementById('adjView1').style.display = 'none'; document.getElementById('adjView2').style.display = 'flex'; renderAdjBoard(); }
+
+        function renderAdjTeachers() {
+            const dateVal = document.getElementById('adjDate').value; if(!dateVal) return;
+            adjustState.dateStr = dateVal; 
+            const [y, m, d] = dateVal.split('-');
+            const jsDay = new Date(y, m - 1, d).getDay(); 
+            adjustState.dayIndex = jsDay === 0 ? -1 : jsDay - 1; 
+
+            const grid = document.getElementById('adjTeaGrid'); grid.innerHTML = '';
+            state.registry.teachers.forEach(t => {
+                const isAbs = adjustState.absent.includes(t.s);
+                const card = document.createElement('div'); card.className = `absent-card ${isAbs ? 'is-absent' : ''}`;
+                card.innerHTML = `<div class="font-black text-base mb-1">${sanitize(t.f)}</div><div class="text-[10px] font-bold opacity-60 uppercase tracking-wide">[${sanitize(t.d) || 'No Desig'}]</div>`;
+                card.onclick = () => { if(isAbs) adjustState.absent = adjustState.absent.filter(x => x !== t.s); else adjustState.absent.push(t.s); renderAdjTeachers(); };
+                grid.appendChild(card);
+            });
+        }
+
+        function isOverlapping(s1, e1, s2, e2) { return (Number(s1) < Number(e2) && Number(e1) > Number(s2)); }
+        
+        function getLiveTeacherLoad(teaCode) { let masterLoad = 0; state.rules.forEach(r => { if(r.tea === teaCode && r.days[adjustState.dayIndex]) masterLoad++; }); let coverLoad = Object.values(adjustState.covers).filter(v => v === teaCode).length; return masterLoad + coverLoad; }
+
+        function renderAdjBoard() {
+            const list = document.getElementById('adjPeriodsList'); list.innerHTML = '';
+            const subsPanel = document.getElementById('adjSubsList'); subsPanel.innerHTML = '';
+            let affected = [];
+            state.rules.forEach(r => { 
+                const isMasterAbsent = adjustState.absent.includes(r.tea);
+                const assignedCover = adjustState.covers[r.id];
+                const isCoverAbsent = assignedCover && adjustState.absent.includes(assignedCover);
+                
+                if(r.days[adjustState.dayIndex] && (isMasterAbsent || isCoverAbsent)) { 
+                    if (isCoverAbsent) delete adjustState.covers[r.id];
+                    const det = getRuleDetails(r); 
+                    if(det) affected.push({ ruleId: r.id, class: r.class, sub: r.sub, tea: r.tea, ...det }); 
+                } 
+            });
+            affected.sort((a,b) => a.s - b.s); 
+            if(affected.length === 0) { list.innerHTML = '<div class="text-slate-400 font-black p-4 text-center">No periods affected.</div>'; return; }
+
+            affected.forEach(aff => {
+                const isCovered = adjustState.covers[aff.ruleId];
+                const box = document.createElement('div'); box.className = "flex items-center justify-between p-3 border-2 border-slate-200 rounded-xl bg-white";
+                box.innerHTML = `<div class="flex-1"><div class="text-sm font-black text-slate-800 mb-1"><span class="text-indigo-600">${sanitize(aff.class)}</span> - ${sanitize(aff.pName)} <span class="text-[10px] font-bold text-slate-400 font-mono">(${formatTime(aff.s)} - ${formatTime(aff.e)})</span></div><div class="text-xs font-bold text-slate-500 uppercase tracking-tight">${getFullSub(aff.sub)} <span class="opacity-50">(Abs: ${getFullTea(aff.tea)})</span></div></div>`;
+                if(isCovered) {
+                    const btn = document.createElement('div'); btn.className = "adj-filled rounded-lg h-12 flex items-center justify-between font-black text-sm shadow-sm transition min-w-[220px]";
+                    btn.innerHTML = `<span>${getFullTea(isCovered)} <span class="text-[10px] opacity-60 ml-1 uppercase">(Sub)</span></span> <button onclick="removeCover('${aff.ruleId}')" class="text-white hover:text-rose-200 ml-3 text-lg leading-none">&times;</button>`;
+                    box.appendChild(btn);
+                } else {
+                    const drop = document.createElement('div'); drop.className = "adj-drop-zone uppercase text-[10px] tracking-widest"; drop.innerText = "DROP SUB HERE";
+                    drop.ondragover = e => { e.preventDefault(); drop.classList.add('drag-over'); }; drop.ondragleave = e => { drop.classList.remove('drag-over'); };
+                    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('drag-over'); assignCover(aff.ruleId, adjustState.draggedSub); };
+                    box.appendChild(drop);
+                }
+                list.appendChild(box);
+            });
+
+            let present = state.registry.teachers.filter(t => !adjustState.absent.includes(t.s)).sort((a,b) => getLiveTeacherLoad(a.s) - getLiveTeacherLoad(b.s));
+            present.forEach(t => {
+                const pill = document.createElement('div'); pill.className = "sub-pill"; pill.draggable = true; 
+                pill.ondragstart = (e) => { 
+                    adjustState.draggedSub = t.s; 
+                    if(e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.s); }
+                };
+                pill.innerHTML = `<div><span class="font-black text-xs text-slate-800">${sanitize(t.f)}</span> <span class="text-[9px] text-slate-400 font-bold uppercase block mt-0.5">[${sanitize(t.d) || 'Teacher'}]</span></div> <div class="bg-slate-100 border border-slate-200 text-slate-500 font-black text-[9px] px-2 py-1 rounded">Load: ${getLiveTeacherLoad(t.s)}</div>`;
+                subsPanel.appendChild(pill);
+            });
+            localStorage.setItem(`architect_covers_${adjustState.dateStr}`, JSON.stringify(adjustState.covers));
+        }
+
+        function checkAbsoluteTimeClash(teaCode, startMin, endMin, dayIdx) {
+            return state.rules.some(r => {
+                if (r.tea !== teaCode || !r.days[dayIdx]) return false;
+                const det = getRuleDetails(r);
+                return det && (startMin < det.e && endMin > det.s);
+            });
+        }
+
+        function assignCover(ruleId, teaCode) {
+            if(!teaCode) return; 
+            const targetRule = state.rules.find(r => r.id === ruleId); if (!targetRule) return;
+            const tDet = getRuleDetails(targetRule); if (!tDet) return;
+            
+            let isBusy = checkAbsoluteTimeClash(teaCode, tDet.s, tDet.e, adjustState.dayIndex);
+            Object.entries(adjustState.covers).forEach(([rId, sCode]) => { if(sCode === teaCode) { const d = getRuleDetails(state.rules.find(x => x.id === rId)); if(d && isOverlapping(tDet.s, tDet.e, d.s, d.e)) isBusy = true; } });
+            
+            if(isBusy) { showToast(`⚠️ ${getFullTea(teaCode)} is engaged!`, "error"); return; }
+            adjustState.covers[ruleId] = teaCode; renderAdjBoard();
+        }
+        function removeCover(ruleId) { delete adjustState.covers[ruleId]; renderAdjBoard(); }
+        function clearAllCovers() { adjustState.covers = {}; renderAdjBoard(); showToast("Substitutes cleared.", "info"); }
+
+        function autoAdjust() {
+            let affected = [];
+            state.rules.forEach(r => { 
+                const isMasterAbsent = adjustState.absent.includes(r.tea);
+                const assignedCover = adjustState.covers[r.id];
+                const isCoverAbsent = assignedCover && adjustState.absent.includes(assignedCover);
+                if(r.days[adjustState.dayIndex] && (isMasterAbsent || isCoverAbsent)) { 
+                    const det = getRuleDetails(r); if(det) affected.push({ ruleId: r.id, ...det }); 
+                } 
+            });
+            affected.sort((a,b) => a.s - b.s); let assignmentsMade = 0;
+            
+            affected.forEach(aff => {
+                if(adjustState.covers[aff.ruleId]) return; 
+                let available = state.registry.teachers.filter(t => {
+                    if(adjustState.absent.includes(t.s)) return false;
+                    let isBusyMaster = checkAbsoluteTimeClash(t.s, aff.s, aff.e, adjustState.dayIndex);
+                    if (isBusyMaster) return false;
+                    let isBusyCover = Object.entries(adjustState.covers).some(([rId, subCode]) => { if (subCode !== t.s) return false; const cr = state.rules.find(x => x.id === rId); if (!cr) return false; const d = getRuleDetails(cr); return d && isOverlapping(aff.s, aff.e, d.s, d.e); });
+                    return !isBusyCover;
+                });
+                
+                if(available.length === 0) return; 
+                
+                const isSeniorClass = aff.clsTier === 'senior';
+                available.sort((a, b) => {
+                    const aDesig = (a.d || '').toLowerCase(); const bDesig = (b.d || '').toLowerCase();
+                    const aSen = aDesig.includes('lecturer') || aDesig.includes('pgt'); const bSen = bDesig.includes('lecturer') || bDesig.includes('pgt');
+                    const aMatch = (isSeniorClass && aSen) || (!isSeniorClass && !aSen); const bMatch = (isSeniorClass && bSen) || (!isSeniorClass && !bSen);
+                    if (aMatch && !bMatch) return -1;
+                    if (!aMatch && bMatch) return 1;
+                    return getLiveTeacherLoad(a.s) - getLiveTeacherLoad(b.s);
+                });
+                adjustState.covers[aff.ruleId] = available[0].s; assignmentsMade++;
+            });
+            renderAdjBoard(); showToast(assignmentsMade > 0 ? `Assigned ${assignmentsMade} periods.` : "Done. Check unassigned.", "success");
+        }
+
+        function printCirculation() {
+            setPrintOrientation('portrait');
+            const layout = document.getElementById('printLayout');
+            const dObj = new Date(adjustState.dateStr);
+            const dateStrClean = dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ` (${DAY_NAMES[adjustState.dayIndex].toUpperCase()})`;
+            let affected = []; state.rules.forEach(r => { if(r.days[adjustState.dayIndex] && adjustState.absent.includes(r.tea)) { const det = getRuleDetails(r); if(det) affected.push({ ...r, ...det }); } });
+            affected.sort((a,b) => a.s - b.s);
+            let rowsHtml = '';
+            affected.forEach(aff => {
+                const subObj = adjustState.covers[aff.id] ? state.registry.teachers.find(t=>t.s === adjustState.covers[aff.id]) : null;
+                const absObj = state.registry.teachers.find(t=>t.s === aff.tea);
+                rowsHtml += `<tr>
+                    <td>${subObj ? `<b>${sanitize(subObj.f)}</b><span class="print-sub-text">${sanitize(subObj.d)||''}</span>` : `<span style="color:#ef4444;">UNASSIGNED</span>`}</td>
+                    <td><b>${sanitize(aff.pName)}</b><span class="print-sub-text">${formatTime(aff.s)} - ${formatTime(aff.e)}</span></td>
+                    <td>${sanitize(aff.class)}</td><td>${getFullSub(aff.sub)}</td>
+                    <td>${absObj ? `<b>${sanitize(absObj.f)}</b><span class="print-sub-text">${sanitize(absObj.d)||''}</span>` : getFullTea(aff.tea)}</td>
+                    <td><div class="print-sig"></div></td></tr>`;
+            });
+            layout.innerHTML = `<div class="print-header">Daily Substitution Sheet</div><div class="print-meta"><div>DATE: <span style="font-weight:400;">${dateStrClean}</span></div><div>ABSENT TEACHERS: <span style="color:#ef4444;font-weight:400;">${adjustState.absent.map(s => getFullTea(s)).join(', ')}</span></div></div><table class="print-table"><thead><tr><th>Substitute</th><th>Period & Time</th><th>Class</th><th>Subject</th><th>Absent</th><th>Signature</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+            layout.classList.add('is-printing'); window.print(); layout.classList.remove('is-printing');
+        }
+
+        function printTeacherDailySlips() {
+            if(adjustState.dayIndex === -1) { showToast("Invalid day for printing.", "error"); return; }
+            
+            setPrintOrientation('portrait');
+            const layout = document.getElementById('printLayout');
+            const dObj = new Date(adjustState.dateStr);
+            const dateStrClean = dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ` (${DAY_NAMES[adjustState.dayIndex].toUpperCase()})`;
+            
+            let presentTeachers = state.registry.teachers.filter(t => !adjustState.absent.includes(t.s));
+            let html = '';
+            
+            presentTeachers.forEach(tea => {
+                let dailyPeriods = [];
+                
+                state.rules.forEach(r => {
+                    if (r.tea === tea.s && r.days[adjustState.dayIndex]) {
+                        const det = getRuleDetails(r);
+                        if (det) {
+                            dailyPeriods.push({ ...r, ...det, type: 'REGULAR' });
+                        }
+                    }
+                });
+                
+                Object.entries(adjustState.covers).forEach(([rId, subCode]) => {
+                    if (subCode === tea.s) {
+                        const cr = state.rules.find(x => x.id === rId);
+                        if (cr) {
+                            const det = getRuleDetails(cr);
+                            if (det) {
+                                dailyPeriods.push({ ...cr, ...det, type: 'COVER', originalTea: cr.tea });
+                            }
+                        }
+                    }
+                });
+                
+                if (dailyPeriods.length === 0) return; 
+                
+                dailyPeriods.sort((a,b) => a.s - b.s);
+                
+                html += `<div class="page-break" style="margin-bottom: 40px; page-break-inside: avoid;">`;
+                html += `<div style="border: 2px solid #000; padding: 20px; border-radius: 12px; font-family: 'Inter Tight', sans-serif;">`;
+                html += `<div style="text-align:center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">`;
+                html += `<h1 style="font-size:20px; font-weight:900; margin:0; text-transform:uppercase;">DAILY DOCKET: ${sanitize(tea.f)}</h1>`;
+                html += `<h2 style="font-size:12px; font-weight:700; margin:4px 0 0 0; color:#475569;">${dateStrClean}</h2>`;
+                html += `</div>`;
+                
+                html += `<table style="width:100%; border-collapse: collapse; text-align: left;">`;
+                html += `<thead><tr style="border-bottom: 2px solid #cbd5e1;"><th style="padding: 8px 4px; font-size:11px;">TIME</th><th style="padding: 8px 4px; font-size:11px;">CLASS</th><th style="padding: 8px 4px; font-size:11px;">SUBJECT</th><th style="padding: 8px 4px; font-size:11px;">STATUS</th></tr></thead><tbody>`;
+                
+                dailyPeriods.forEach(p => {
+                    const isCover = p.type === 'COVER';
+                    const rowBg = isCover ? 'background-color: #fef08a;' : ''; 
+                    const statusText = isCover ? `COVERING (${getFullTea(p.originalTea)})` : 'REGULAR';
+                    const statusStyle = isCover ? 'color: #b45309; font-weight: 900;' : 'color: #475569; font-weight: 700;';
+                    
+                    html += `<tr style="${rowBg} border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px 4px; font-size: 12px; font-weight: 900;">${formatTime(p.s)} - ${formatTime(p.e)}<br><span style="font-size:10px; font-weight: normal; color: #64748b;">${sanitize(p.pName)}</span></td>
+                        <td style="padding: 10px 4px; font-size: 14px; font-weight: 900;">${sanitize(p.class)}</td>
+                        <td style="padding: 10px 4px; font-size: 12px; font-weight: 700;">${getFullSub(p.sub)}</td>
+                        <td style="padding: 10px 4px; font-size: 10px; ${statusStyle}">${statusText}</td>
+                    </tr>`;
+                });
+                
+                html += `</tbody></table>`;
+                html += `<div style="margin-top: 20px; text-align: right; font-size: 10px; font-weight: 700; color: #94a3b8;">Generated by Academic Architect</div>`;
+                html += `</div></div>`;
+            });
+            
+            if (!html) {
+                showToast("No active periods to print for today.", "info");
+                return;
+            }
+            
+            layout.innerHTML = html;
+            layout.classList.add('is-printing');
+            window.print();
+            layout.classList.remove('is-printing');
+        }
+
+        /* ================== MASTER REPORT ENGINE ================== */
+        function openReportModal() { document.getElementById('reportModal').style.display = 'flex'; updateReportTargets(); }
+        function closeReportModal() { document.getElementById('reportModal').style.display = 'none'; }
+        
+        function updateReportTargets() {
+            const type = document.getElementById('repType').value;
+            const target = document.getElementById('repTarget');
+            if(type === 'matrix') {
+                target.innerHTML = '<option value="ALL">All Classes (Single Page)</option>';
+                target.disabled = true;
+            } else {
+                target.disabled = false;
+                target.innerHTML = '<option value="ALL">All (Batch Print)</option>';
+                if(type === 'class') state.classes.forEach(c => target.innerHTML += `<option value="${sanitize(c.name)}">${sanitize(c.name)}</option>`);
+                else state.registry.teachers.forEach(t => target.innerHTML += `<option value="${sanitize(t.s)}">${sanitize(t.f)} (${sanitize(t.s)})</option>`);
+            }
+        }
+
+        function executePrintReport() {
+            const type = document.getElementById('repType').value;
+            const target = document.getElementById('repTarget').value;
+            const layout = document.getElementById('reportLayout');
+            layout.innerHTML = '';
+            
+            if(type === 'class') generateClassReports(target, layout);
+            else if(type === 'teacher') generateTeacherReports(target, layout);
+            else if(type === 'matrix') generateMatrixReport(layout);
+            
+            setPrintOrientation('landscape');
+            layout.classList.add('is-printing');
+            window.print();
+            layout.classList.remove('is-printing');
+            closeReportModal();
+        }
+
+        function generateClassReports(target, container) {
+            let classesToPrint = target === 'ALL' ? state.classes : state.classes.filter(c => c.name === target);
+            classesToPrint.forEach((cls) => {
+                const bp = (state.blueprints[cls.tier] || []).slice().sort((a,b)=>a.s - b.s);
+                let usedSubs = new Set(), usedTeas = new Set();
+                
+                let html = `<div class="page-break">`;
+                html += `<div style="text-align:center; margin-bottom:15px;"><h1 style="font-size:24px; font-weight:900; margin:0; text-transform:uppercase;">GSSS KHALYANI</h1><h2 style="font-size:14px; font-weight:700; margin:5px 0 0 0; color:#475569; text-transform:uppercase;">CLASS-WISE TIMETABLE: ${sanitize(cls.name)}</h2></div>`;
+                html += `<table class="report-table"><thead><tr><th>DAY</th>`;
+                bp.forEach(p => { html += `<th>${sanitize(p.n)}<br><span style="font-size:8px;font-weight:normal;">${formatTime(p.s)} - ${formatTime(p.e)}</span></th>`; });
+                html += `</tr></thead><tbody>`;
+                
+                for(let d=0; d<6; d++) {
+                    html += `<tr><td><b>${DAY_NAMES[d].substring(0,3).toUpperCase()}</b></td>`;
+                    bp.forEach(p => {
+                        if(p.r) {
+                            if(d === 0) html += `<td rowspan="6" class="recess-col">RECESS</td>`;
+                        } else {
+                            let matchingRules = state.rules.filter(r => r.class === cls.name && r.periodId === p.id && r.days[d]);
+                            if(matchingRules.length > 0) {
+                                html += `<td><div style="display:flex; gap:6px; justify-content:center; align-items:center; min-height:36px;">`;
+                                matchingRules.forEach((rule, idx) => {
+                                    if(rule.sub) usedSubs.add(rule.sub); 
+                                    if(rule.tea) usedTeas.add(rule.tea);
+                                    let borderStyle = idx < matchingRules.length - 1 ? 'border-right:1px dashed #cbd5e1; padding-right:6px;' : '';
+                                    html += `<div style="${borderStyle} flex:1; min-width:0; text-align:center;">
+                                        <b style="font-size:12px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitize(rule.sub)||'-'}</b>
+                                        <span style="font-size:9px; color:#475569; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitize(rule.tea)||'-'}</span>
+                                    </div>`;
+                                });
+                                html += `</div></td>`;
+                            } else {
+                                html += `<td style="color:#94a3b8;font-size:10px;">- FREE -</td>`;
+                            }
+                        }
+                    });
+                    html += `</tr>`;
+                }
+                html += `</tbody></table>`;
+                
+                let subLeg = Array.from(usedSubs).map(s => `<b>${sanitize(s)}</b>: ${getFullSub(s)}`).join(' | ');
+                let teaLeg = Array.from(usedTeas).map(t => `<b>${sanitize(t)}</b>: ${getFullTea(t)}`).join(' | ');
+                html += `<div style="margin-top:10px; font-size:9px; border-top:1px solid #000; padding-top:4px; text-align:center;">`;
+                if(subLeg) html += `[SUBJECTS] ${subLeg} &nbsp;&nbsp;||&nbsp;&nbsp; `;
+                if(teaLeg) html += `[TEACHERS] ${teaLeg}`;
+                html += `</div></div>`;
+                container.innerHTML += html;
+            });
+        }
+
+        function generateTeacherReports(target, container) {
+            let teachersToPrint = target === 'ALL' ? state.registry.teachers : state.registry.teachers.filter(t => t.s === target);
+
+            teachersToPrint.forEach((tea) => {
+                let teaRules = state.rules.filter(r => r.tea === tea.s);
+                if(target !== 'ALL' && teaRules.length === 0) { showToast(`${tea.f} has no assigned classes.`, "info"); return; }
+                if(target === 'ALL' && teaRules.length === 0) return;
+
+                // Figure out which blueprints this teacher actually belongs to
+                let activeTiers = new Set();
+                teaRules.forEach(r => {
+                    let cls = state.classes.find(c => c.name === r.class);
+                    if(cls && cls.tier) activeTiers.add(cls.tier);
+                });
+                if(activeTiers.size === 0) { activeTiers.add('junior'); } // Fallback baseline tier
+
+                let totalPeriods = 0, classCounts = {}, subCounts = {};
+                let usedSubs = new Set();
+                teaRules.forEach(r => {
+                    r.days.forEach(isActive => {
+                        if(isActive) {
+                            totalPeriods++; classCounts[r.class] = (classCounts[r.class] || 0) + 1; subCounts[r.sub] = (subCounts[r.sub] || 0) + 1;
+                            if(r.sub) usedSubs.add(r.sub);
+                        }
+                    });
+                });
+                
+                let clsMeta = Object.entries(classCounts).map(([k,v]) => `${sanitize(k)}(${v})`).join(', ');
+                let subMeta = Object.entries(subCounts).map(([k,v]) => `${sanitize(k)}(${v})`).join(', ');
+
+                // Build a separate, perfectly mapped structural table for each tier the teacher services
+                activeTiers.forEach(tier => {
+                    let bp = (state.blueprints[tier] || []).slice().sort((a,b) => a.s - b.s);
+
+                    let html = `<div class="page-break" style="margin-bottom:30px;">`;
+                    html += `<div style="text-align:center; margin-bottom:15px;">
+                                <h1 style="font-size:24px; font-weight:900; margin:0; text-transform:uppercase;">GSSS KHALYANI</h1>
+                                <h2 style="font-size:14px; font-weight:700; margin:5px 0 0 0; color:#475569; text-transform:uppercase;">TEACHER TIMETABLE (${tier.toUpperCase()} TIER): ${sanitize(tea.f)} (${sanitize(tea.d)||'Teacher'})</h2>
+                                <div style="font-size:10px; font-weight:700; color:#64748b; margin-top:4px;">TOTAL WEEKLY PERIODS: ${totalPeriods} &nbsp;|&nbsp; CLASSES: ${clsMeta||'None'} &nbsp;|&nbsp; SUBJECTS: ${subMeta||'None'}</div>
+                             </div>`;
+                    
+                    html += `<table class="report-table"><thead><tr><th style="width:80px;">DAY</th>`;
+                    bp.forEach(p => {
+                        html += `<th>${sanitize(p.n)}<br><span style="font-size:8px;font-weight:normal;">${formatTime(p.s)} - ${formatTime(p.e)}</span></th>`;
+                    });
+                    html += `</tr></thead><tbody>`;
+
+                    for(let d=0; d<6; d++) {
+                        html += `<tr><td style="font-weight:900; background:#f8fafc;">${DAY_NAMES[d].substring(0,3).toUpperCase()}</td>`;
+                        bp.forEach(p => {
+                            if(p.r) {
+                                if(d === 0) html += `<td rowspan="6" class="recess-col">RECESS</td>`;
+                            } else {
+                                let matchingRules = state.rules.filter(r => r.tea === tea.s && r.periodId === p.id && r.days[d]);
+                                if(matchingRules.length > 0) {
+                                    html += `<td><div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:36px;">`;
+                                    matchingRules.forEach((rule, idx) => {
+                                        let borderStyle = idx < matchingRules.length - 1 ? 'border-b border-dashed border-slate-200 pb-1 mb-1 w-full' : 'w-full';
+                                        html += `<div class="${borderStyle}">
+                                                    <b style="font-size:12px; display:block;">${sanitize(rule.class)}</b>
+                                                    <span style="font-size:10px; color:#2563eb; font-weight:bold; display:block;">${sanitize(rule.sub)}</span>
+                                                 </div>`;
+                                    });
+                                    html += `</div></td>`;
+                                } else {
+                                    html += `<td style="color:#cbd5e1; font-size:11px; font-weight:normal;">-</td>`;
+                                }
+                            }
+                        });
+                        html += `</tr>`;
+                    }
+                    html += `</tbody></table>`;
+
+                    let subLeg = Array.from(usedSubs).map(s => `<b>${sanitize(s)}</b>: ${getFullSub(s)}`).join(' | ');
+                    html += `<div style="margin-top:10px; font-size:9px; border-top:1px solid #000; padding-top:4px; text-align:center;">`;
+                    if(subLeg) html += `[SUBJECTS] ${subLeg}`;
+                    html += `</div></div>`;
+                    
+                    container.innerHTML += html;
+                });
+            });
+        }
+
+        /* PHASE 11: Master Matrix Proportional Generator */
+        function generateMatrixReport(container) {
+            let S = 9999, E = 0; let hasPeriods = false;
+            Object.values(state.blueprints).forEach(bp => {
+                bp.forEach(p => { hasPeriods = true; if (Number(p.s) < S) S = Number(p.s); if (Number(p.e) > E) E = Number(p.e); });
+            });
+            if (!hasPeriods) { showToast("No periods defined.", "error"); return; }
+            let T = E - S; if(T <= 0) return;
+
+            let html = `<div class="matrix-print-container">`;
+            let currentTier = null;
+            let sortedClasses = state.classes.slice().sort((a,b) => { const pA = parseInt(a.name) || 999; const pB = parseInt(b.name) || 999; return (a.tier||'') === (b.tier||'') ? pA - pB : ((a.tier||'') === 'junior' ? -1 : 1); });
+            
+            if(sortedClasses.length === 0) {
+                if(state.blueprints.junior && state.blueprints.junior.length) html += renderMatrixHeader('junior', S, T);
+                if(state.blueprints.senior && state.blueprints.senior.length) html += renderMatrixHeader('senior', S, T);
+            } else {
+                sortedClasses.forEach(cls => {
+                    if (cls.tier !== currentTier) { currentTier = cls.tier; html += renderMatrixHeader(currentTier, S, T); }
+                    html += renderMatrixRow(cls, S, T);
+                });
+            }
+            html += `</div>`;
+
+            let usedSubs = new Set(), usedTeas = new Set();
+            state.rules.forEach(r => { if(r.sub) usedSubs.add(r.sub); if(r.tea) usedTeas.add(r.tea); });
+            let subLeg = Array.from(usedSubs).map(s => `<b>${sanitize(s)}</b>: ${getFullSub(s)}`).join(' | ');
+            let teaLeg = Array.from(usedTeas).map(t => `<b>${sanitize(t)}</b>: ${getFullTea(t)}`).join(' | ');
+            html += `<div style="margin-top:5px; font-size:8px; border-top:1px solid #000; padding-top:2px; text-align:center; line-height:1.2;">`;
+            if(subLeg) html += `[SUBJECTS] ${subLeg} &nbsp;&nbsp;||&nbsp;&nbsp; `;
+            if(teaLeg) html += `[TEACHERS] ${teaLeg}`;
+            html += `</div>`;
+
+            container.innerHTML = html;
+        }
+
+        function renderMatrixHeader(tier, S, T) {
+            let bp = state.blueprints[tier] || [];
+            if (bp.length === 0) return `<div class="matrix-row matrix-header-row"><div class="matrix-label">${(tier||'').toUpperCase()} TIER</div><div class="matrix-timeline"></div></div>`;
+            
+            let html = `<div class="matrix-row matrix-header-row"><div class="matrix-label">${(tier||'').toUpperCase()} TIER</div><div class="matrix-timeline">`;
+            bp.forEach(p => {
+                let leftP = ((Number(p.s) - S) / T) * 100; let widthP = ((Number(p.e) - Number(p.s)) / T) * 100;
+                html += `<div class="matrix-block matrix-header-block" style="left:${leftP}%; width:${widthP}%;"><b>${sanitize(p.n)}</b><span style="font-size:7px;font-weight:normal;">${formatTime(p.s)} - ${formatTime(p.e)}</span></div>`;
+            });
+            html += `</div></div>`; return html;
+        }
+
+        function renderMatrixRow(cls, S, T) {
+            let html = `<div class="matrix-row"><div class="matrix-label" style="background:#fff !important; font-size:12px;">${sanitize(cls.name)}</div><div class="matrix-timeline">`;
+            let bp = state.blueprints[cls.tier] || [];
+            bp.forEach(p => {
+                let leftP = ((Number(p.s) - S) / T) * 100; let widthP = ((Number(p.e) - Number(p.s)) / T) * 100;
+                if (p.r) {
+                    html += `<div class="matrix-block recess" style="left:${leftP}%; width:${widthP}%;">RECESS</div>`;
+                } else {
+                    html += `<div class="matrix-block bg-white" style="left:${leftP}%; width:${widthP}%; display: flex; border-left: 1px solid #000;">`;
+                    let rulesForPeriod = state.rules.filter(r => r.class === cls.name && r.periodId === p.id && r.days.some(d=>d));
+                    let splits = [];
+                    rulesForPeriod.forEach(r => { if(!r.sub && !r.tea) return; splits.push({ sub: r.sub, tea: r.tea, days: getDayLabel(r.days) }); });
+                    
+                    if (splits.length > 0) {
+                        splits.forEach((sp, idx) => {
+                            let br = idx < splits.length - 1 ? 'border-right: 1px dashed #000;' : '';
+                            html += `<div style="flex:1; ${br} display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; padding:1px;">
+                                <b style="font-size:11px; line-height:1;">${sanitize(sp.sub)||'-'}</b>
+                                <span style="font-size:9px; color:#333; line-weight:1.1; font-weight:bold;">${sanitize(sp.tea)||'-'}</span>
+                                <span style="font-size:7px; color:#555; line-height:1;">(${sp.days})</span></div>`;
+                        });
+                    } else {
+                        html += `<div class="w-full h-full flex items-center justify-center text-[9px] text-slate-300 font-bold">-</div>`;
+                    }
+                    html += `</div>`;
+                }
+            });
+            html += `</div></div>`; return html;
+        }
+    </script>
+</body>
+</html>
