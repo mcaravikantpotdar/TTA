@@ -72,7 +72,9 @@
         .add-split { position: absolute; right: 0; top: 0; bottom: 0; width: 18px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #cbd5e1; cursor: cell; transition: 0.2s; z-index: 10; }
         .add-split:hover { background: #f0f9ff; color: #3b82f6; }
         
-        .pill { padding: 8px 10px; background: white; border: 2px solid #cbd5e1; border-radius: 8px; font-weight: 900; cursor: grab; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+        .pill { padding: 8px 10px; background: white; border: 2px solid #cbd5e1; border-radius: 8px; font-weight: 900; cursor: grab; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; transition: opacity 0.2s, border-color 0.2s, box-shadow 0.2s, background-color 0.2s; }
+        .pill.tea-available { border-color: #10b981 !important; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.15), 0 2px 4px -1px rgba(16, 185, 129, 0.1); background-color: #ecfdf5 !important; }
+        .pill.tea-busy { opacity: 0.25; filter: grayscale(1); pointer-events: none; }
         .pill-count { background: #fff; border: 1px solid #cbd5e1; padding: 1px 5px; border-radius: 4px; font-size: 9px; min-width: 22px; text-align: center; }
         .icon-btn { cursor: pointer; color: #94a3b8; font-size: 12px; transition: 0.1s; }
         .icon-btn:hover { color: #000; }
@@ -406,6 +408,54 @@
             showTooltip(e, txt);
         }
 
+        function handleTeaMouseOver(e, ruleId, teaCode) {
+            if (teaCode) {
+                showNameTooltip(e, teaCode, 'tea');
+            }
+            highlightAvailableTeachers(ruleId);
+        }
+
+        function handleTeaMouseLeave() {
+            hideTooltip();
+            clearTeacherHighlights();
+        }
+
+        function highlightAvailableTeachers(ruleId) {
+            const rule = state.rules.find(r => r.id === ruleId);
+            if (!rule) return;
+            
+            const activeDays = [];
+            if (rule.days) {
+                rule.days.forEach((active, idx) => { if(active) activeDays.push(idx); });
+            }
+            
+            state.registry.teachers.forEach(tea => {
+                const teaCapsule = document.querySelector(`.pill[data-tea-code="${tea.s}"]`);
+                if (!teaCapsule) return;
+                
+                let hasConflict = false;
+                activeDays.forEach(dayIdx => {
+                    if (checkClash(tea.s, dayIdx, rule.class, rule.periodId, rule.id)) {
+                        hasConflict = true;
+                    }
+                });
+                
+                if (hasConflict) {
+                    teaCapsule.classList.add('tea-busy');
+                    teaCapsule.classList.remove('tea-available');
+                } else {
+                    teaCapsule.classList.add('tea-available');
+                    teaCapsule.classList.remove('tea-busy');
+                }
+            });
+        }
+
+        function clearTeacherHighlights() {
+            document.querySelectorAll('.pill[data-tea-code]').forEach(capsule => {
+                capsule.classList.remove('tea-available', 'tea-busy');
+            });
+        }
+
         function showClashTooltip(e, ruleId) { if (currentClashMap[ruleId]) showTooltip(e, currentClashMap[ruleId].join('<br>')); }
 
         function getRuleDetails(r) {
@@ -481,6 +531,7 @@
 
         function createSidePill(type, item, idx, count) {
             const d = document.createElement('div'); d.className = 'pill'; d.draggable = true;
+            if (type === 'tea') d.setAttribute('data-tea-code', item.s);
             const cleanShort = sanitize(item.s);
             const cleanDesig = item.d ? sanitize(item.d) : '';
             const desigHtml = cleanDesig ? `<span class="text-[8px] font-normal opacity-50 block leading-tight truncate w-20">${cleanDesig}</span>` : '';
@@ -522,7 +573,9 @@
                         } else {
                             slotsForThisPeriod.forEach(rule => {
                                 const isClash = clashMap[rule.id]; const clashClass = isClash ? 'has-clash' : '';
-                                const subEvents = rule.sub ? `onmouseover="showNameTooltip(event, '${rule.sub}', 'sub')" onmouseleave="hideTooltip()"` : ''; const teaEvents = rule.tea ? `onmouseover="showNameTooltip(event, '${rule.tea}', 'tea')" onmouseleave="hideTooltip()"` : ''; const dayEvents = isClash ? `onmouseover="showClashTooltip(event, '${rule.id}')" onmouseleave="hideTooltip()"` : '';
+                                const subEvents = rule.sub ? `onmouseover="showNameTooltip(event, '${rule.sub}', 'sub')" onmouseleave="hideTooltip()"` : ''; 
+                                const teaEvents = `onmouseover="handleTeaMouseOver(event, '${rule.id}', '${rule.tea}')" onmouseleave="handleTeaMouseLeave()"`; 
+                                const dayEvents = isClash ? `onmouseover="showClashTooltip(event, '${rule.id}')" onmouseleave="hideTooltip()"` : '';
                                 const col = document.createElement('div'); col.className = `vertical-col ${activeRuleId === rule.id ? 'active' : ''} ${clashClass}`;
                                 col.innerHTML = `<div class="drop-zone dz-sub ${rule.sub?'has-val':''}" onclick="clearValue(event, '${rule.id}', 'sub')" ondrop="handleTargetedDrop(event, '${rule.id}', 'sub')" ${subEvents}>${rule.sub ? rule.sub : '<span class="placeholder-text">+ SUB</span>'}</div><div class="drop-zone dz-tea ${rule.tea?'has-val':''}" onclick="clearValue(event, '${rule.id}', 'tea')" ondrop="handleTargetedDrop(event, '${rule.id}', 'tea')" ${teaEvents}>${rule.tea ? rule.tea : '<span class="placeholder-text">+ TEA</span>'}</div><div class="drop-zone dz-day ${(rule.days||[]).some(d=>d)?'has-val':''}" onclick="toggleStrip(event, '${rule.id}')" ${dayEvents}>(${getDayLabel(rule.days||[])})</div>`;
                                 if(activeRuleId === rule.id) col.appendChild(createDayStrip(rule)); cell.appendChild(col);
@@ -642,6 +695,7 @@
         
         function deletePeriod(id, tier) { if(confirm("DANGER: Delete period? All assignments in this time slot for this tier will be permanently purged.")){ saveStateToHistory(); if(state.blueprints[tier]) state.blueprints[tier] = state.blueprints[tier].filter(x=>x.id !== id); if(state.rules) state.rules = state.rules.filter(r => r.periodId !== id); localStorage.setItem('architect_matrix_state', JSON.stringify(state)); render(); showToast("Period and tied assignments purged.", "info"); } }
 
+        // Class and registry functions
         function openClsModal(name = null, tier) { editingCls = { name, tier }; document.getElementById('clsTitle').innerText = name ? 'Edit Class' : 'Add Class to Tier'; document.getElementById('clsName').value = name || ''; document.getElementById('clsModal').style.display = 'flex'; }
         
         function saveClass() { 
@@ -1108,7 +1162,7 @@
                         });
                         html += `</tr>`;
                     }
-                    html += `</tbody></table>`;
+                    html += `</table>`;
 
                     let subLeg = Array.from(usedSubs).map(s => `<b>${sanitize(s)}</b>: ${getFullSub(s)}`).join(' | ');
                     html += `<div style="margin-top:10px; font-size:9px; border-top:1px solid #000; padding-top:4px; text-align:center;">`;
@@ -1120,7 +1174,7 @@
             });
         }
 
-        /* PHASE 11: Master Matrix Proportional Generator */
+        /* Master Matrix Proportional Generator */
         function generateMatrixReport(container) {
             let S = 9999, E = 0; let hasPeriods = false;
             Object.values(state.blueprints).forEach(bp => {
